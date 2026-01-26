@@ -23,5 +23,9 @@
   "devDependencies": {
     "@types/node": "^25.0.10",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "groq-sdk": "^0.37.0"
   }
 }
