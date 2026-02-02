@@ -1,5 +1,5 @@
 import Groq from 'groq-sdk'
-import fs, { type FileHandle } from 'fs/promises'
+import fs, { type FileHandle } from 'node:fs/promises'
 import 'dotenv/config'
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY
