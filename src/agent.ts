@@ -1,6 +1,8 @@
 import Groq from 'groq-sdk'
 import fs, { type FileHandle } from 'node:fs/promises'
 import path from 'node:path'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 import 'dotenv/config'
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY
@@ -61,7 +63,6 @@ async function edit_file(
     return true
   }
   try {
-
   } catch (error: any) {
     if (error?.code !== 'ENOENT') throw error
 
@@ -105,13 +106,13 @@ async function list_directory(dirPath: string = '.'): Promise<string> {
 
     return result.trimEnd()
   } catch (error: any) {
-    if (error?.code === "ENOENT") {
-      return `Error: Directory '${dirPath}' not found.`;
+    if (error?.code === 'ENOENT') {
+      return `Error: Directory '${dirPath}' not found.`
     }
-    if (error?.code === "EACCES" || error?.code === "EPERM") {
-      return `Error: Permission denied to access '${dirPath}'.`;
+    if (error?.code === 'EACCES' || error?.code === 'EPERM') {
+      return `Error: Permission denied to access '${dirPath}'.`
     }
-    return `Error listing directory '${dirPath}': ${String(error?.message ?? error)}`;
+    return `Error listing directory '${dirPath}': ${String(error?.message ?? error)}`
   }
 }
 
@@ -141,6 +142,46 @@ export async function read_file_content(filePath: string): Promise<string> {
     }
 
     return `Error reading file '${filePath}': ${String(error?.message ?? error)}`
+  }
+}
+
+const execAsync = promisify(exec)
+
+async function run_command(
+  command: string,
+  workingDir?: string,
+): Promise<[string, number]> {
+  try {
+    const { stdout, stderr } = await execAsync(command, {
+      cwd: workingDir,
+      maxBuffer: 10 * 1024 * 1024,
+    })
+
+    let output = stdout + stderr
+
+    if (output.length > 2000) {
+      output =
+        output.slice(0, 1000) +
+        '\n\n[...content clipped...]\n\n' +
+        output.slice(-1000)
+    }
+
+    return [output, 0]
+  } catch (error: any) {
+    if (error.stdout !== undefined || error.stderr !== undefined) {
+      let output = (error.stdout || '') + (error.stderr || '')
+
+      if (output.length > 2000) {
+        output =
+          output.slice(0, 1000) +
+          '\n\n[...content clipped...]\n\n' +
+          output.slice(-1000)
+      }
+
+      return [output, error.code || 1]
+    }
+
+    return [error.message || String(error), 1]
   }
 }
 
