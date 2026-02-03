@@ -1,5 +1,6 @@
 import Groq from 'groq-sdk'
 import fs, { type FileHandle } from 'node:fs/promises'
+import path from 'node:path'
 import 'dotenv/config'
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY
@@ -36,7 +37,7 @@ You must run and test your changes before reporting success.`.trim(),
   ],
 }
 
-export async function edit_file(
+async function edit_file(
   filePath: string,
   findStr: string,
   replaceStr: string,
@@ -44,7 +45,7 @@ export async function edit_file(
   if (!filePath) throw new Error('filePath is required')
   if (findStr === '') return false
 
-  let fileHandle : FileHandle | undefined
+  let fileHandle: FileHandle | undefined
 
   const editExistingFile = async (): Promise<boolean> => {
     fileHandle = await fs.open(filePath, 'r+')
@@ -60,7 +61,7 @@ export async function edit_file(
     return true
   }
   try {
-    
+
   } catch (error: any) {
     if (error?.code !== 'ENOENT') throw error
 
@@ -77,6 +78,41 @@ export async function edit_file(
     await fileHandle?.close()
   }
   return false
+}
+
+async function list_directory(dirPath: string = '.'): Promise<string> {
+  try {
+    const items = await fs.readdir(dirPath)
+
+    if (items.length === 0) {
+      return `Directory '${dirPath}' is empty.`
+    }
+    let result = `Contents of directory '${dirPath}':\n`
+
+    for (const item of items) {
+      const fullPath = path.join(dirPath, item)
+
+      let itemType: 'Directory' | 'File' = 'File'
+      try {
+        const stats = await fs.stat(fullPath)
+        itemType = stats.isDirectory() ? 'Directory' : 'File'
+      } catch {
+        itemType = 'File'
+      }
+
+      result += `- ${item} (${itemType})\n`
+    }
+
+    return result.trimEnd()
+  } catch (error: any) {
+    if (error?.code === "ENOENT") {
+      return `Error: Directory '${dirPath}' not found.`;
+    }
+    if (error?.code === "EACCES" || error?.code === "EPERM") {
+      return `Error: Permission denied to access '${dirPath}'.`;
+    }
+    return `Error listing directory '${dirPath}': ${String(error?.message ?? err)}`;
+  }
 }
 
 const groq = new Groq({ apiKey: GROQ_API_KEY })
