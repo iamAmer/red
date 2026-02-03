@@ -3,6 +3,7 @@ import fs, { type FileHandle } from 'node:fs/promises'
 import path from 'node:path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import readline from 'readline'
 import 'dotenv/config'
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY
@@ -34,6 +35,11 @@ For each user request:
 When modifying code, be careful to maintain the existing style and structure. Test your changes when possible.
 If you're unsure about something, ask clarifying questions before proceeding.
 
+Tool use rules:
+- Use the provided tool calling interface only (tool_calls with JSON arguments).
+- Do NOT use XML-like tags such as <function=...> or markdown to call tools.
+- If you need to run multiple tools, issue multiple tool calls.
+
 You must run and test your changes before reporting success.`.trim(),
     },
   ],
@@ -45,9 +51,20 @@ async function edit_file(
   replaceStr: string,
 ): Promise<boolean> {
   if (!filePath) throw new Error('filePath is required')
-  if (findStr === '') return false
 
   let fileHandle: FileHandle | undefined
+
+  const overwriteFile = async (): Promise<boolean> => {
+    try {
+      const existing = await fs.readFile(filePath, { encoding: 'utf8' })
+      if (existing === replaceStr) return false
+    } catch (error: any) {
+      if (error?.code !== 'ENOENT') throw error
+    }
+
+    await fs.writeFile(filePath, replaceStr, { encoding: 'utf8' })
+    return true
+  }
 
   const editExistingFile = async (): Promise<boolean> => {
     fileHandle = await fs.open(filePath, 'r+')
@@ -62,16 +79,33 @@ async function edit_file(
 
     return true
   }
+
   try {
-    return await editExistingFile() 
+    if (findStr === '') {
+      return await overwriteFile()
+    }
+
+    return await editExistingFile()
   } catch (error: any) {
     if (error?.code !== 'ENOENT') throw error
 
     try {
+      if (findStr === '') {
+        await fs.writeFile(filePath, replaceStr, {
+          encoding: 'utf8',
+          flag: 'wx',
+        })
+        return true
+      }
+
       await fs.writeFile(filePath, replaceStr, { encoding: 'utf8', flag: 'wx' })
       return true
     } catch (e: any) {
       if (e?.code === 'EEXIST') {
+        if (findStr === '') {
+          return await overwriteFile()
+        }
+
         return await editExistingFile()
       }
       throw e
@@ -79,7 +113,6 @@ async function edit_file(
   } finally {
     await fileHandle?.close()
   }
-  return false
 }
 
 async function list_directory(dirPath: string = '.'): Promise<string> {
@@ -117,7 +150,7 @@ async function list_directory(dirPath: string = '.'): Promise<string> {
   }
 }
 
-export async function read_file_content(filePath: string): Promise<string> {
+async function read_file_content(filePath: string): Promise<string> {
   try {
     const content = await fs.readFile(filePath, { encoding: 'utf8' })
 
@@ -273,22 +306,195 @@ const tools = [
 ]
 
 const groq = new Groq({ apiKey: GROQ_API_KEY })
-async function main() {
-  const chatCompletion = await getGroqChatCompletion()
-  // Print the completion returned by the LLM.
-  console.log(chatCompletion.choices[0]?.message?.content || '')
+
+function isGoalAchieved(state: typeof agent_state): boolean {
+  if (state.messages.length <= 2) {
+    return false
+  }
+
+  const lastMessage = state.messages[state.messages.length - 1]
+
+  if (!lastMessage) {
+    return false
+  }
+
+  return (
+    'role' in lastMessage &&
+    lastMessage.role === 'assistant' &&
+    !('tool_calls' in lastMessage)
+  )
 }
 
-async function getGroqChatCompletion() {
-  return groq.chat.completions.create({
-    messages: [
-      {
-        role: 'user',
-        content: 'say hello in arabic',
-      },
-    ],
-    model: 'openai/gpt-oss-20b',
+function askUserApproval(message: string): Promise<boolean> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  })
+
+  return new Promise((resolve) => {
+    rl.question(`${message} (y/n): `, (answer) => {
+      rl.close()
+      resolve(answer.toLowerCase() === 'y')
+    })
   })
 }
 
-main()
+async function loop(userInput: string) {
+  agent_state.messages.push({
+    role: 'user',
+    content: userInput,
+  })
+
+  while (!isGoalAchieved(agent_state) && agent_state.messages.length < 100) {
+    console.log(`[Thinking... step ${agent_state.messages.length - 1}]`)
+
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: agent_state.messages as any,
+      tools: tools as any,
+    })
+
+    const assistantMessage = completion.choices[0]?.message
+    if (!assistantMessage) {
+      console.error('Error: No response from AI')
+      break
+    }
+
+    agent_state.messages.push(assistantMessage as any)
+
+    if (assistantMessage.tool_calls) {
+      for (const toolCall of assistantMessage.tool_calls) {
+        const args = JSON.parse(toolCall.function.arguments)
+
+        if (toolCall.function.name === 'edit_file') {
+          console.log(`\nEditing file: ${args.filePath}`)
+          if (args.findStr !== '') {
+            console.log(`Content to find\n\`\`\`\n${args.findStr}\n\`\`\``)
+          }
+          if (args.replaceStr !== '') {
+            console.log(
+              `Content to replace with\n\`\`\`\n${args.replaceStr}\n\`\`\``,
+            )
+          }
+
+          if (!(await askUserApproval('Do you want to edit this file?'))) {
+            console.log('File edit cancelled by user.')
+            agent_state.messages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: 'File edit cancelled by user.',
+            } as any)
+            continue
+          }
+
+          const result = await edit_file(
+            args.filePath,
+            args.findStr,
+            args.replaceStr,
+          )
+          console.log(result ? 'File edited successfully' : 'No changes made')
+
+          agent_state.messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: String(result),
+          } as any)
+        } else if (toolCall.function.name === 'run_command') {
+          console.log(`\nExecuting command: ${args.command}`)
+
+          if (
+            !(await askUserApproval('Do you want to execute this command?'))
+          ) {
+            console.log('Command execution cancelled by user.')
+            agent_state.messages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: 'Command execution cancelled by user.',
+            } as any)
+            continue
+          }
+
+          const [output, code] = await run_command(
+            args.command,
+            args.workingDir,
+          )
+          console.log(output)
+
+          agent_state.messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: output,
+          } as any)
+        } else if (toolCall.function.name === 'list_directory') {
+          console.log(`\nListing directory: ${args.dirPath || '.'}`)
+          const result = await list_directory(args.dirPath)
+          console.log(result)
+
+          agent_state.messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: result,
+          } as any)
+        } else if (toolCall.function.name === 'read_file_content') {
+          console.log(`\nReading file: ${args.filePath}`)
+          const result = await read_file_content(args.filePath)
+          console.log(result)
+
+          agent_state.messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: result,
+          } as any)
+        }
+
+        console.log()
+      }
+    }
+  }
+
+  const finalMessage = agent_state.messages[agent_state.messages.length - 1]
+  if (
+    finalMessage &&
+    finalMessage.role === 'assistant' &&
+    finalMessage.content
+  ) {
+    console.log('\n' + '='.repeat(50))
+    console.log('Assistant:', finalMessage.content)
+    console.log('='.repeat(50) + '\n')
+  }
+}
+
+function getUserInput(prompt: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  })
+
+  return new Promise((resolve) => {
+    rl.question(prompt, (answer) => {
+      rl.close()
+      resolve(answer)
+    })
+  })
+}
+
+async function main() {
+  console.log('='.repeat(50))
+  console.log('RED is here, how could i assist you, sir :)')
+  console.log('='.repeat(50))
+  console.log('Type your coding task and press Enter.')
+  console.log('RED will help you complete it step by step.\n')
+
+  const userInput = await getUserInput('You: ')
+
+  if (!userInput.trim()) {
+    console.log('No input provided. Exiting.')
+    return
+  }
+
+  await loop(userInput)
+
+  console.log('\nTask completed!')
+}
+
+main().catch(console.error)
