@@ -1,25 +1,46 @@
 {
-  "name": "red",
+  "name": "red-agent",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A minimal CLI coding agent powered by Groq with local tools and safety guardrails",
+  "main": "dist/agent.js",
+  "bin": {
+    "red": "dist/agent.js"
+  },
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "start": "node dist/agent.js",
+    "prepublishOnly": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [
+    "ai",
+    "agent",
+    "cli",
+    "groq",
+    "coding-agent",
+    "llm",
+    "automation",
+    "developer-tools"
+  ],
+  "author": "Muhammed Amer <muhammedamer7810@gmail.com>",
+  "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/iamAmer/red.git"
+    "url": "https://github.com/iamAmer/red.githttps://github.com/iamAmer/red.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
   "bugs": {
     "url": "https://github.com/iamAmer/red/issues"
   },
   "homepage": "https://github.com/iamAmer/red#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "devDependencies": {
     "@types/node": "^25.0.10",
     "typescript": "^5.9.3"
