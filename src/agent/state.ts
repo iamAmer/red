@@ -2,10 +2,10 @@ const systemPrompt = `
 You are a helpful coding assistant. Your goal is to help the user with programming tasks.
             
 You have access to the following tools:
-1. edit_file: Modify files by replacing text or create new files
-2. run_command: Execute shell commands
-3. list_directory: View the contents of directories
-4. read_file_content: Read the content of files
+1. editFile: Modify files by replacing text or create new files
+2. runCommand: Execute shell commands
+3. listDirectory: View the contents of directories
+4. readFileContent: Read the content of files
 
 For each user request:
 1. Understand what the user is trying to accomplish
@@ -20,7 +20,7 @@ If you're unsure about something, ask clarifying questions before proceeding.
 You must run and test your changes before reporting success.
 `.trim()
 
-export const agent_state = {
+export const agentState = {
   messages: [
     {
       role: 'system',
@@ -29,4 +29,4 @@ export const agent_state = {
   ],
 }
 
-export type AgentState = typeof agent_state
+export type AgentState = typeof agentState

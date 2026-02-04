@@ -1,12 +1,12 @@
 import { askUserApproval } from './approvals.js'
 import { groq, MODEL } from './groq.js'
-import { agent_state, type AgentState } from './state.js'
+import { agentState, type AgentState } from './state.js'
 import { tools } from './tools.schema.js'
 import {
-  edit_file,
-  list_directory,
-  read_file_content,
-  run_command,
+  editFile,
+  listDirectory,
+  readFileContent,
+  runCommand,
 } from '../tools/index.js'
 
 function isGoalAchieved(state: AgentState): boolean {
@@ -27,7 +27,7 @@ function isGoalAchieved(state: AgentState): boolean {
   )
 }
 
-export async function loop(userInput: string, state: AgentState = agent_state) {
+export async function loop(userInput: string, state: AgentState = agentState) {
   state.messages.push({
     role: 'user',
     content: userInput,
@@ -54,7 +54,7 @@ export async function loop(userInput: string, state: AgentState = agent_state) {
       for (const toolCall of assistantMessage.tool_calls) {
         const args = JSON.parse(toolCall.function.arguments)
 
-        if (toolCall.function.name === 'edit_file') {
+        if (toolCall.function.name === 'editFile') {
           console.log(`\nEditing file: ${args.filePath}`)
           if (args.findStr !== '') {
             console.log(`Content to find\n\`\`\`\n${args.findStr}\n\`\`\``)
@@ -75,7 +75,7 @@ export async function loop(userInput: string, state: AgentState = agent_state) {
             continue
           }
 
-          const result = await edit_file(
+          const result = await editFile(
             args.filePath,
             args.findStr,
             args.replaceStr,
@@ -87,7 +87,7 @@ export async function loop(userInput: string, state: AgentState = agent_state) {
             tool_call_id: toolCall.id,
             content: String(result),
           } as any)
-        } else if (toolCall.function.name === 'run_command') {
+        } else if (toolCall.function.name === 'runCommand') {
           console.log(`\nExecuting command: ${args.command}`)
 
           if (
@@ -102,7 +102,7 @@ export async function loop(userInput: string, state: AgentState = agent_state) {
             continue
           }
 
-          const [output] = await run_command(args.command, args.workingDir)
+          const [output] = await runCommand(args.command, args.workingDir)
           console.log(output)
 
           state.messages.push({
@@ -110,9 +110,9 @@ export async function loop(userInput: string, state: AgentState = agent_state) {
             tool_call_id: toolCall.id,
             content: output,
           } as any)
-        } else if (toolCall.function.name === 'list_directory') {
+        } else if (toolCall.function.name === 'listDirectory') {
           console.log(`\nListing directory: ${args.dirPath || '.'}`)
-          const result = await list_directory(args.dirPath)
+          const result = await listDirectory(args.dirPath)
           console.log(result)
 
           state.messages.push({
@@ -120,9 +120,9 @@ export async function loop(userInput: string, state: AgentState = agent_state) {
             tool_call_id: toolCall.id,
             content: result,
           } as any)
-        } else if (toolCall.function.name === 'read_file_content') {
+        } else if (toolCall.function.name === 'readFileContent') {
           console.log(`\nReading file: ${args.filePath}`)
-          const result = await read_file_content(args.filePath)
+          const result = await readFileContent(args.filePath)
           console.log(result)
 
           state.messages.push({

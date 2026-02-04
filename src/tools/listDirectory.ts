@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-export async function list_directory(dirPath: string = '.'): Promise<string> {
+export async function listDirectory(dirPath: string = '.'): Promise<string> {
   try {
     const items = await fs.readdir(dirPath)
 

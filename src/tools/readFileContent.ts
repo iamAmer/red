@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 
-export async function read_file_content(filePath: string): Promise<string> {
+export async function readFileContent(filePath: string): Promise<string> {
   try {
     const content = await fs.readFile(filePath, { encoding: 'utf8' })
 

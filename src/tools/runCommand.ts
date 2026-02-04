@@ -3,7 +3,7 @@ import { promisify } from 'node:util'
 
 const execAsync = promisify(exec)
 
-export async function run_command(
+export async function runCommand(
   command: string,
   workingDir?: string,
 ): Promise<[string, number]> {

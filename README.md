@@ -48,7 +48,7 @@ You will see a banner, then a `You:` prompt. The agent will think step-by-step, 
 - `src/agent/loop.ts` - Main agent loop and tool-call handling with approvals.
 - `src/agent/groq.ts` - Groq client and model selection via env vars.
 - `src/agent/tools.schema.ts` - Tool schema provided to the model.
-- `src/tools/` - Implementations for `edit_file`, `read_file_content`, `list_directory`, and `run_command`.
+- `src/tools/` - Implementations for `editFile`, `readFileContent`, `listDirectory`, and `runCommand`.
 
 ## Notes
 

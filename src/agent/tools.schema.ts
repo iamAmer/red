@@ -2,7 +2,7 @@ export const tools = [
   {
     type: 'function',
     function: {
-      name: 'edit_file',
+      name: 'editFile',
       description:
         'Apply a diff to a file by replacing occurrences of findStr with replaceStr.',
       parameters: {
@@ -28,7 +28,7 @@ export const tools = [
   {
     type: 'function',
     function: {
-      name: 'run_command',
+      name: 'runCommand',
       description: 'Run a shell command and return its output and error code.',
       parameters: {
         type: 'object',
@@ -50,7 +50,7 @@ export const tools = [
   {
     type: 'function',
     function: {
-      name: 'list_directory',
+      name: 'listDirectory',
       description: 'List the contents of a directory.',
       parameters: {
         type: 'object',
@@ -68,7 +68,7 @@ export const tools = [
   {
     type: 'function',
     function: {
-      name: 'read_file_content',
+      name: 'readFileContent',
       description: 'Read and return the content of a file.',
       parameters: {
         type: 'object',

@@ -1,6 +1,6 @@
 import fs, { type FileHandle } from 'node:fs/promises'
 
-export async function edit_file(
+export async function editFile(
   filePath: string,
   findStr: string,
   replaceStr: string,
