@@ -1,6 +1,6 @@
 {
   "name": "red-agent",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A minimal CLI coding agent powered by Groq with local tools and safety guardrails",
   "main": "dist/agent.js",
   "bin": {
