@@ -2,9 +2,6 @@
 
 A minimal CLI coding agent powered by Groq that automates development tasks with local tools and built-in safety guardrails.
 
-[![npm version](https://badge.fury.io/js/red-agent.svg)](https://www.npmjs.com/package/red-agent)
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
-
 ## What is Red?
 
 Red is a lightweight coding agent that runs in your terminal. It can:
@@ -14,14 +11,6 @@ Red is a lightweight coding agent that runs in your terminal. It can:
 - Run shell commands
 - Make autonomous decisions about which tools to use
 - Ask for approval before any destructive actions
-
-## Quick Start
-
-### Global Installation
-
-```bash
-npm install -g red-agent
-```
 
 ### Setup
 
@@ -224,14 +213,6 @@ Red is designed to be safe by default. It will refuse to:
 
 ```bash
 export GROQ_API_KEY=your_key_here
-```
-
-### "Command not found: red"
-
-**Solution:** Make sure Red is installed globally:
-
-```bash
-npm install -g red-agent
 ```
 
 Or if developing locally:
