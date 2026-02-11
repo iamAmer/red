@@ -9,6 +9,14 @@ import {
   runCommand,
 } from '../tools/index.js'
 
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
 function isGoalAchieved(state: AgentState): boolean {
   if (state.messages.length <= 2) {
     return false
@@ -52,16 +60,46 @@ export async function loop(userInput: string, state: AgentState = agentState) {
 
     if (assistantMessage.tool_calls) {
       for (const toolCall of assistantMessage.tool_calls) {
-        const args = JSON.parse(toolCall.function.arguments)
+        let args: any = {}
+        try {
+          args = JSON.parse(toolCall.function.arguments)
+        } catch (error) {
+          const message = `Error: Invalid tool arguments. ${String(
+            (error as Error)?.message ?? error,
+          )}`
+          console.error(message)
+          state.messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: message,
+          } as any)
+          continue
+        }
 
         if (toolCall.function.name === 'editFile') {
-          console.log(`\nEditing file: ${args.filePath}`)
-          if (args.findStr !== '') {
-            console.log(`Content to find\n\`\`\`\n${args.findStr}\n\`\`\``)
+          const filePath = normalizeOptionalString(args?.filePath)
+          if (!filePath) {
+            const message = 'Error: editFile requires a non-empty filePath.'
+            console.error(message)
+            state.messages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: message,
+            } as any)
+            continue
           }
-          if (args.replaceStr !== '') {
+
+          const findStr = typeof args?.findStr === 'string' ? args.findStr : ''
+          const replaceStr =
+            typeof args?.replaceStr === 'string' ? args.replaceStr : ''
+
+          console.log(`\nEditing file: ${filePath}`)
+          if (findStr !== '') {
+            console.log(`Content to find\n\`\`\`\n${findStr}\n\`\`\``)
+          }
+          if (replaceStr !== '') {
             console.log(
-              `Content to replace with\n\`\`\`\n${args.replaceStr}\n\`\`\``,
+              `Content to replace with\n\`\`\`\n${replaceStr}\n\`\`\``,
             )
           }
 
@@ -75,11 +113,7 @@ export async function loop(userInput: string, state: AgentState = agentState) {
             continue
           }
 
-          const result = await editFile(
-            args.filePath,
-            args.findStr,
-            args.replaceStr,
-          )
+          const result = await editFile(filePath, findStr, replaceStr)
           console.log(result ? 'File edited successfully' : 'No changes made')
 
           state.messages.push({
@@ -88,7 +122,21 @@ export async function loop(userInput: string, state: AgentState = agentState) {
             content: String(result),
           } as any)
         } else if (toolCall.function.name === 'runCommand') {
-          console.log(`\nExecuting command: ${args.command}`)
+          const command = normalizeOptionalString(args?.command)
+          if (!command) {
+            const message = 'Error: runCommand requires a non-empty command.'
+            console.error(message)
+            state.messages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: message,
+            } as any)
+            continue
+          }
+
+          const workingDir = normalizeOptionalString(args?.workingDir)
+
+          console.log(`\nExecuting command: ${command}`)
 
           if (
             !(await askUserApproval('Do you want to execute this command?'))
@@ -102,7 +150,7 @@ export async function loop(userInput: string, state: AgentState = agentState) {
             continue
           }
 
-          const [output] = await runCommand(args.command, args.workingDir)
+          const [output] = await runCommand(command, workingDir)
           console.log(output)
 
           state.messages.push({
@@ -111,8 +159,9 @@ export async function loop(userInput: string, state: AgentState = agentState) {
             content: output,
           } as any)
         } else if (toolCall.function.name === 'listDirectory') {
-          console.log(`\nListing directory: ${args.dirPath || '.'}`)
-          const result = await listDirectory(args.dirPath)
+          const dirPath = normalizeOptionalString(args?.dirPath) ?? '.'
+          console.log(`\nListing directory: ${dirPath}`)
+          const result = await listDirectory(dirPath)
           console.log(result)
 
           state.messages.push({
@@ -121,8 +170,21 @@ export async function loop(userInput: string, state: AgentState = agentState) {
             content: result,
           } as any)
         } else if (toolCall.function.name === 'readFileContent') {
-          console.log(`\nReading file: ${args.filePath}`)
-          const result = await readFileContent(args.filePath)
+          const filePath = normalizeOptionalString(args?.filePath)
+          if (!filePath) {
+            const message =
+              'Error: readFileContent requires a non-empty filePath.'
+            console.error(message)
+            state.messages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: message,
+            } as any)
+            continue
+          }
+
+          console.log(`\nReading file: ${filePath}`)
+          const result = await readFileContent(filePath)
           console.log(result)
 
           state.messages.push({
